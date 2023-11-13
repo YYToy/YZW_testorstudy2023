@@ -1,0 +1,152 @@
+<title>我的第一篇博客</title>
+<meta name="description" content="">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<img class="logo" src="logo.png">
+
+<x-markdown>
+​## Evaluation [:平均绝对误差]
+
+Submissions will be evaluated using [Mean Absolute Error](https://en.wikipedia.org/wiki/Mean_absolute_error "Mean Absolute Error"),
+
+![](https://img-blog.csdnimg.cn/img_convert/b8901b1544d1b46ed0cef84055da7edc.png)​
+
+![]("点击并拖拽以移动")编辑
+
+where each `x_i` represents the predicted target, `y_i` represents the ground truth, and `n` is the number of rows in the test set.
+
+ddl:
+
+除非另有说明，所有截止日期均为相应日期的下午11:59（UTC）。
+
+提交文件:
+
+对于测试集中的每个ID，你必须预测目标年龄。该文件应包含一个标题并具有以下格式：
+
+```
+id,yield
+74051,10.2
+74051,3.6
+74051,11.9
+etc.
+```
+
+![]("点击并拖拽以移动")
+
+---
+
+数据集:
+
+背景介绍
+
+该数据集用于根据物理属性来估计螃蟹的年龄。它是经典回归分析和特征工程的一个很好的起点，并了解特征工程在数据科学领域的影响。
+
+对于一个商业蟹农来说，知道螃蟹的适当年龄有助于他们决定是否和何时收获螃蟹。超过一定的年龄，螃蟹的身体特征的增长可以忽略不计，因此，重要的是把握收获的时机，以降低成本，增加利润。该数据集的目标是：探索性数据分析--了解不同的物理特征如何随年龄变化。
+
+特征工程--利用给定数据点的组合定义新的特征，帮助提高模型的准确性。
+
+回归模型 - 建立一个回归模型来预测螃蟹的年龄。
+
+性别分类
+
+蟹的性别 - 雄性、雌性和不确定的。
+
+蟹的长度（以英尺计；1英尺=30.48厘米）
+
+蟹的直径（以英尺为单位；1英尺=30.48厘米）
+
+螃蟹的高度（英尺；1英尺=30.48厘米）
+
+螃蟹的重量（以盎司为单位；1磅=16盎司）
+
+不带壳的重量（以盎司为单位；1磅=16盎司）。
+
+---
+
+我的成绩:1.49194
+
+模型:WeightedEnsemble 二次正则化
+
+特征重要性参考:
+
+![](https://img-blog.csdnimg.cn/6a5919477bf440cbb736e852fe472596.png)![]("点击并拖拽以移动")​**编辑**
+
+---
+
+纯用skl的话,可以使用lgbm
+
+```
+import lightgbm as lgb
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import cross_val_score
+import warnings 
+
+def feature_engineering(df):
+    df['Volume'] = df['Length'] * df['Diameter'] * df['Height']
+    df ["dim1"] = df["Height"] * df["Diameter"] 
+    df ["dim2"] = df["Height"] * df["Length"] 
+    df ["dim3"] = df["Diameter"] * df["Length"]
+    df['Density'] = df['Weight'] / df['Volume']
+    df ["weight_volume_ratio"] = df["Weight"] / (df["Diameter"] + 1e-8 )
+    df["total_weight"] = df["Shell Weight"] + df["Viscera Weight"] + df["Shucked Weight"]
+    df['Shell Percentage'] = df['Shell Weight'] / df['Weight']
+    df['Meat Percentage'] = df['Shucked Weight'] / df['Weight']
+    df['Viscera Percentage'] = df['Viscera Weight'] / df['Weight']
+    df['Shell Surface Area'] = (df['Diameter'] * df['Length'] * 2) * (
+            df['Diameter'] * df['Height'] * 2) * (
+                                       df['Length'] * df['Height'] * 2)
+    df['Shell Density'] = df['Shell Weight'] / df['Shell Surface Area']
+    return df
+
+
+
+trainDf = pd.read_csv("/kaggle/input/playground-series-s3e16/train.csv")
+testDf = pd.read_csv("/kaggle/input/playground-series-s3e16/test.csv")
+
+trainDf = feature_engineering(trainDf)
+testDf = feature_engineering(testDf)
+trainDf.Sex = trainDf.Sex.apply(lambda row: 2 if row == "I" else(1 if row == "F" else 0) )
+testDf.Sex = testDf.Sex.apply(lambda row: 2 if row == "I" else(1 if row == "F" else 0) )
+x = trainDf.copy().drop(["id", "Age"], axis=1)
+y = trainDf.copy()["Age"]
+xTest = testDf.copy().drop(["id",], axis=1)
+
+
+lgb_model = lgb.LGBMRegressor(
+    categorical_feature= [0],
+    task = 'predict',
+    application = 'regression',
+    objective = 'mae',
+    boosting_type="gbdt",
+    num_iterations = 3000,
+    learning_rate = 0.005,
+    num_leaves=25,
+    tree_learner='feature',
+    max_depth =5,
+    min_data_in_leaf=10,
+    bagging_fraction = 1,
+    bagging_freq = 100,
+    reg_sqrt='True',
+    metric ='mae',
+    feature_fraction = 0.7,
+    random_state=42)
+
+
+lgb_model.fit(x,y)
+yTest = lgb_model.predict(xTest)
+predictions = pd.DataFrame(testDf["id"].copy())
+predictions["Age"] = yTest[:]
+predictions.Age = predictions.Age.apply(lambda x: round(x))
+predictions.to_csv("submission.csv", index= False)
+```
+
+![]("点击并拖拽以移动")
+
+参考:BHARGAV6031,得分:1.34872 [under the [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0 "Apache 2.0") open source license.]
+
+</x-markdown>
+
+<link rel="stylesheet" href="css/default.css">
+<script src="js/marked.min.js"></script>
+<script src="js/main.js"></script>
